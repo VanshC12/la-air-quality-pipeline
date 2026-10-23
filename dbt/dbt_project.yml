@@ -1,0 +1,59 @@
+name: la_air_quality
+version: "1.0.0"
+config-version: 2
+require-dbt-version: ">=1.9.0"
+
+profile: la_air_quality
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Local wall-clock timezone used for daily aggregates and dim_date.
+  local_timezone: "America/Los_Angeles"
+  # dim_date range (inclusive).
+  dim_date_start: "2024-01-01"
+  dim_date_end: "2027-12-31"
+
+models:
+  la_air_quality:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +schema: staging
+      +materialized: incremental
+      +incremental_strategy: delete+insert
+      +on_schema_change: append_new_columns
+    intermediate:
+      +schema: analytics
+      +materialized: view
+    marts:
+      +schema: analytics
+      +materialized: table
+
+seeds:
+  la_air_quality:
+    +schema: analytics
+    locations:
+      +column_types:
+        location_id: text
+        location_name: text
+        region: text
+        county: text
+        latitude: numeric(9,6)
+        longitude: numeric(9,6)
+        is_active: boolean
+
+data_tests:
+  la_air_quality:
+    # Failing rows are written to the dq schema so a failed test can be
+    # triaged with a SELECT instead of re-running the query by hand.
+    +store_failures: true
+    +schema: dq

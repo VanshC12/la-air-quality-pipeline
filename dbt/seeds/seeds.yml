@@ -1,0 +1,26 @@
+version: 2
+
+seeds:
+  - name: locations
+    description: >
+      Monitoring locations across the LA basin. Single source of truth for both
+      the Python extractor (which coordinates to query) and dim_location.
+      Add a row here to onboard a new location; set is_active=false to retire one.
+    columns:
+      - name: location_id
+        description: Stable snake_case identifier used as the natural key everywhere.
+        data_tests: [unique, not_null]
+      - name: location_name
+        data_tests: [not_null]
+      - name: region
+        data_tests: [not_null]
+      - name: latitude
+        data_tests:
+          - not_null
+          - accepted_range: { arguments: { min_value: 33, max_value: 35 } }
+      - name: longitude
+        data_tests:
+          - not_null
+          - accepted_range: { arguments: { min_value: -119, max_value: -116 } }
+      - name: is_active
+        data_tests: [not_null]

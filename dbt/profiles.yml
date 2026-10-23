@@ -1,0 +1,26 @@
+# Connection profile. Everything is driven by environment variables so the
+# same file works for a laptop (warehouse on localhost:5433), the Airflow
+# container (warehouse:5432) and CI (localhost:5432).
+la_air_quality:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_HOST', 'localhost') }}"
+      port: "{{ env_var('WAREHOUSE_PORT', '5433') | as_number }}"
+      user: "{{ env_var('WAREHOUSE_USER', 'warehouse') }}"
+      password: "{{ env_var('WAREHOUSE_PASSWORD', 'warehouse') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB', 'warehouse') }}"
+      schema: analytics
+      threads: 4
+      connect_timeout: 10
+    prod:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_HOST') }}"
+      port: "{{ env_var('WAREHOUSE_PORT', '5432') | as_number }}"
+      user: "{{ env_var('WAREHOUSE_USER') }}"
+      password: "{{ env_var('WAREHOUSE_PASSWORD') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB') }}"
+      schema: analytics
+      threads: 4
+      connect_timeout: 10

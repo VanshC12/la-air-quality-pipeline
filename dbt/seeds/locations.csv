@@ -1,0 +1,11 @@
+location_id,location_name,region,county,latitude,longitude,is_active
+dtla,Downtown Los Angeles,Central LA,Los Angeles,34.0522,-118.2437,true
+santa_monica,Santa Monica,Westside,Los Angeles,34.0195,-118.4912,true
+long_beach,Long Beach,South Bay,Los Angeles,33.7701,-118.1937,true
+torrance,Torrance,South Bay,Los Angeles,33.8358,-118.3406,true
+pasadena,Pasadena,San Gabriel Valley,Los Angeles,34.1478,-118.1445,true
+pomona,Pomona,San Gabriel Valley,Los Angeles,34.0551,-117.7500,true
+burbank,Burbank,San Fernando Valley,Los Angeles,34.1808,-118.3090,true
+van_nuys,Van Nuys,San Fernando Valley,Los Angeles,34.1899,-118.4514,true
+riverside,Riverside,Inland Empire,Riverside,33.9533,-117.3962,true
+san_bernardino,San Bernardino,Inland Empire,San Bernardino,34.1083,-117.2898,true

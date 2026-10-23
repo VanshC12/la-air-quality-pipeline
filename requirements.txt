@@ -1,0 +1,6 @@
+# Installed into the Airflow image (see Dockerfile). Keep in sync with pyproject.toml.
+dbt-core>=1.11,<1.12
+dbt-postgres>=1.11,<1.12
+requests>=2.31
+tenacity>=8.2
+psycopg2-binary>=2.9

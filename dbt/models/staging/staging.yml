@@ -1,0 +1,96 @@
+version: 2
+
+models:
+  - name: stg_open_meteo__weather_hourly
+    description: >
+      One row per (location, UTC hour) of weather, flattened and typed from the
+      raw JSONB payloads. Incremental on ingested_at; re-fetched hours replace
+      earlier ones (delete+insert on the natural key).
+    columns:
+      - name: location_id
+        description: FK to the locations seed / dim_location.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('locations')
+                field: location_id
+      - name: observed_at
+        description: Hour start, UTC (timestamptz).
+        data_tests: [not_null]
+      - name: temperature_c
+        description: Air temperature at 2 m, degrees Celsius.
+        data_tests:
+          - accepted_range: { arguments: { min_value: -30, max_value: 60 } }
+      - name: relative_humidity_pct
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 100 } }
+      - name: precipitation_mm
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0 } }
+      - name: wind_speed_kmh
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0 } }
+      - name: wind_direction_deg
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 360 } }
+      - name: surface_pressure_hpa
+        data_tests:
+          - accepted_range: { arguments: { min_value: 850, max_value: 1100 } }
+      - name: response_id
+        description: Lineage back to raw.api_responses.
+        data_tests: [not_null]
+      - name: ingested_at
+        data_tests: [not_null]
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, observed_at]
+
+  - name: stg_open_meteo__air_quality_hourly
+    description: >
+      One row per (location, UTC hour) of pollutant concentrations (ug/m3) plus
+      the provider-computed hourly US AQI, flattened from the raw JSONB payloads.
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('locations')
+                field: location_id
+      - name: observed_at
+        data_tests: [not_null]
+      - name: pm2_5
+        description: Fine particulate matter < 2.5 um, ug/m3.
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 1000 } }
+      - name: pm10
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 2000 } }
+      - name: ozone
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 1000 } }
+      - name: nitrogen_dioxide
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 1000 } }
+      - name: sulphur_dioxide
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 1000 } }
+      - name: carbon_monoxide
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 50000 } }
+      - name: provider_us_aqi
+        description: Hourly US AQI as computed by Open-Meteo (max across pollutants).
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 500 } }
+      - name: provider_us_aqi_pm2_5
+        description: Hourly US AQI for PM2.5 only, as computed by Open-Meteo.
+      - name: response_id
+        data_tests: [not_null]
+      - name: ingested_at
+        data_tests: [not_null]
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, observed_at]

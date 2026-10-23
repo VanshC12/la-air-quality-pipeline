@@ -1,0 +1,48 @@
+version: 2
+
+sources:
+  - name: open_meteo
+    description: >
+      Raw ("bronze") layer written by the Python ingestion package. One row per
+      API call with the verbatim JSON payload. Owned by `la_aq`, never written by dbt.
+    database: "{{ env_var('WAREHOUSE_DB', 'warehouse') }}"
+    schema: raw
+    loader: la_aq (python)
+    tables:
+      - name: api_responses
+        description: Verbatim Open-Meteo responses, one row per (source, location, UTC day).
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 36, period: hour }
+          error_after: { count: 72, period: hour }
+        columns:
+          - name: response_id
+            data_tests: [unique, not_null]
+          - name: source
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ["open_meteo_weather", "open_meteo_air_quality"]
+          - name: location_id
+            data_tests: [not_null]
+          - name: window_start
+            data_tests: [not_null]
+          - name: payload
+            data_tests: [not_null]
+          - name: ingested_at
+            data_tests: [not_null]
+
+      - name: pipeline_runs
+        description: Run ledger written by the ingestion code (one row per orchestrated run).
+        columns:
+          - name: run_id
+            data_tests: [unique, not_null]
+          - name: status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["running", "succeeded", "failed"]
+
+      - name: dq_results
+        description: Results of the pre-transform quality gate, one row per check per run.

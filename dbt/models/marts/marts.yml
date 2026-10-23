@@ -1,0 +1,198 @@
+version: 2
+
+models:
+  - name: dim_location
+    description: Monitoring locations (from the version-controlled seed) with a derived climate zone.
+    columns:
+      - name: location_id
+        data_tests: [unique, not_null]
+      - name: location_name
+        data_tests: [not_null]
+      - name: climate_zone
+        data_tests:
+          - accepted_values: { arguments: { values: ["coastal", "inland"] } }
+      - name: latitude
+        data_tests:
+          - accepted_range: { arguments: { min_value: 33, max_value: 35 } }
+      - name: longitude
+        data_tests:
+          - accepted_range: { arguments: { min_value: -119, max_value: -116 } }
+
+  - name: dim_date
+    description: Calendar dimension, one row per day, generated in-warehouse.
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+      - name: day_of_week
+        data_tests:
+          - accepted_range: { arguments: { min_value: 1, max_value: 7 } }
+      - name: season
+        data_tests:
+          - accepted_values: { arguments: { values: ["Winter", "Spring", "Summer", "Fall"] } }
+
+  - name: fct_hourly_conditions
+    description: >
+      Hourly fact: weather + pollutant concentrations per location, with local-time
+      keys and an instantaneous PM2.5 AQI. Grain: (location_id, observed_at).
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships: { arguments: { to: ref('dim_location'), field: location_id } }
+      - name: observed_at
+        data_tests: [not_null]
+      - name: date_key_local
+        data_tests:
+          - not_null
+          - relationships: { arguments: { to: ref('dim_date'), field: date_key } }
+      - name: hour_local
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 23 } }
+      - name: pm25_aqi_hourly
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 500 } }
+      - name: pm25_aqi_hourly_category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Good
+                  - Moderate
+                  - Unhealthy for Sensitive Groups
+                  - Unhealthy
+                  - Very Unhealthy
+                  - Hazardous
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, observed_at]
+
+  - name: mart_daily_air_quality
+    description: >
+      Daily air-quality summary per location (local calendar day) with the EPA
+      24-hour PM2.5 AQI, completeness flags, 7-day rolling mean and daily weather.
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships: { arguments: { to: ref('dim_location'), field: location_id } }
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships: { arguments: { to: ref('dim_date'), field: date_key } }
+      - name: hours_in_day
+        description: Rows observed for the local day (25 on the fall-back DST day, 23 on spring-forward).
+        data_tests:
+          - accepted_range: { arguments: { min_value: 1, max_value: 25 } }
+      - name: hours_with_pm25
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 25 } }
+      - name: daily_pm25_aqi
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 500 } }
+      - name: daily_pm25_aqi_category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Good
+                  - Moderate
+                  - Unhealthy for Sensitive Groups
+                  - Unhealthy
+                  - Very Unhealthy
+                  - Hazardous
+      - name: pm25_mean_7d
+        data_tests:
+          - accepted_range: { arguments: { min_value: 0, max_value: 1000 } }
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, date_key]
+
+  - name: mart_latest_conditions
+    description: Most recent hour with air-quality data per location (dashboard "now" panel).
+    columns:
+      - name: location_id
+        data_tests: [unique, not_null]
+      - name: observed_at
+        data_tests: [not_null]
+
+unit_tests:
+  - name: daily_aqi_moderate_complete_day
+    description: >
+      24 hourly PM2.5 values of 12.0 ug/m3 -> 24-h mean 12.0 -> EPA AQI 56 ("Moderate"),
+      flagged complete. Pins the breakpoint arithmetic in the pm25_to_aqi macro.
+    model: mart_daily_air_quality
+    given:
+      - input: ref('dim_location')
+        rows:
+          - { location_id: dtla, location_name: Downtown Los Angeles, region: Central LA, climate_zone: coastal }
+      - input: ref('fct_hourly_conditions')
+        rows:
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+          - { location_id: dtla, date_key_local: 2026-10-20, pm2_5: 12.0, temperature_c: 20.0 }
+    expect:
+      rows:
+        - location_id: dtla
+          date_key: 2026-10-20
+          location_name: Downtown Los Angeles
+          hours_with_pm25: 24
+          is_complete_day: true
+          pm25_mean: 12.0
+          pm25_mean_7d: 12.0
+          daily_pm25_aqi: 56
+          daily_pm25_aqi_category: Moderate
+          is_unhealthy_for_sensitive_groups: false
+
+  - name: daily_aqi_withheld_on_incomplete_day
+    description: >
+      Only 10 of 24 hours present -> statistics are still computed but the EPA
+      AQI is withheld (null) and the day is flagged incomplete.
+    model: mart_daily_air_quality
+    given:
+      - input: ref('dim_location')
+        rows:
+          - { location_id: riverside, location_name: Riverside, region: Inland Empire, climate_zone: inland }
+      - input: ref('fct_hourly_conditions')
+        rows:
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+          - { location_id: riverside, date_key_local: 2026-10-20, pm2_5: 40.0 }
+    expect:
+      rows:
+        - location_id: riverside
+          date_key: 2026-10-20
+          hours_with_pm25: 10
+          is_complete_day: false
+          pm25_mean: 40.0
+          daily_pm25_aqi: null
+          daily_pm25_aqi_category: null
