@@ -24,6 +24,10 @@ up: env ## Start warehouse + Airflow (UI: http://localhost:8080, airflow/airflow
 	$(COMPOSE) up -d --build
 	@echo "Airflow UI: http://localhost:8080  (user/pass from .env, default airflow/airflow)"
 
+up-codespaces: env ## Start in GitHub Codespaces (host networking; use if Airflow can't reach its DB)
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.codespaces.yml up -d --build
+	@echo "Airflow UI: forward port 8080 (Ports tab)"
+
 dashboard: env ## Start the Streamlit dashboard (http://localhost:8501)
 	$(COMPOSE) --profile dashboard up -d --build dashboard
 	@echo "Dashboard: http://localhost:8501"

@@ -1,0 +1,62 @@
+# Override for GitHub Codespaces (and any Docker host where containers on the
+# default bridge network can't reach each other - symptom: "connection timed
+# out" to airflow-db even though it is healthy).
+#
+# Every service joins the host network instead, so they talk over localhost.
+# The two Postgres instances listen on different ports to avoid clashing:
+#   warehouse  -> localhost:5433     airflow-db -> localhost:5434
+#
+#   docker compose -f docker-compose.yml -f docker-compose.codespaces.yml up -d --build
+#   (or: make up-codespaces)
+---
+x-host-env: &host-env
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@localhost:5434/airflow
+  AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://localhost:8080/execution/"
+  WAREHOUSE_DSN: postgresql://${WAREHOUSE_USER:-warehouse}:${WAREHOUSE_PASSWORD:-warehouse}@localhost:5433/${WAREHOUSE_DB:-warehouse}
+  WAREHOUSE_HOST: localhost
+  WAREHOUSE_PORT: "5433"
+
+services:
+  warehouse:
+    network_mode: host
+    ports: !reset []
+    command: ["postgres", "-p", "5433"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-p", "5433", "-U", "${WAREHOUSE_USER:-warehouse}", "-d", "${WAREHOUSE_DB:-warehouse}"]
+
+  airflow-db:
+    network_mode: host
+    command: ["postgres", "-p", "5434"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-p", "5434", "-U", "airflow"]
+
+  airflow-apiserver:
+    network_mode: host
+    ports: !reset []
+    environment: *host-env
+
+  airflow-scheduler:
+    network_mode: host
+    environment: *host-env
+
+  airflow-dag-processor:
+    network_mode: host
+    environment: *host-env
+
+  airflow-triggerer:
+    network_mode: host
+    environment: *host-env
+
+  airflow-init:
+    network_mode: host
+    environment: *host-env
+
+  airflow-cli:
+    network_mode: host
+    environment: *host-env
+
+  dashboard:
+    network_mode: host
+    ports: !reset []
+    environment:
+      WAREHOUSE_DSN: postgresql://${WAREHOUSE_USER:-warehouse}:${WAREHOUSE_PASSWORD:-warehouse}@localhost:5433/${WAREHOUSE_DB:-warehouse}

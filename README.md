@@ -118,6 +118,17 @@ select * from analytics.mart_daily_air_quality order by date_key desc, daily_pm2
 select * from raw.dq_results order by checked_at desc limit 20;
 ```
 
+### In GitHub Codespaces (no local install)
+
+**Code → Codespaces → Create codespace on main**, then in the terminal:
+
+```bash
+cp .env.example .env && echo "AIRFLOW_UID=$(id -u)" >> .env
+make up-codespaces     # host networking: Codespaces can block container-to-container traffic
+```
+
+Open the **Ports** tab and click the globe next to **8080**. Port 5433 is the warehouse (Postgres), not a web page.
+
 ### Without Docker (or without internet)
 
 ```bash
